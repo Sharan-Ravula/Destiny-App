@@ -1,0 +1,4 @@
+module CSwissEphemeris {
+    umbrella header "CSwissEphemeris.h"
+    export *
+}
