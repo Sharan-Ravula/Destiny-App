@@ -23,12 +23,16 @@ struct SavedChartsListView: View {
 
     private var theme: ColorTheme { ColorTheme.theme(forID: colorThemeID) }
 
-    /// Matches name, place, or the formatted date-of-birth/time-of-birth
-    /// string (e.g. "Aug 24, 2002" or "9:40 AM" both match, since
+    /// Matches name, place, gender, or the formatted date-of-birth/time-of-
+    /// birth string (e.g. "Aug 24, 2002" or "9:40 AM" both match, since
     /// birthDisplay already combines both into one string) -- client-side
     /// filtering over the already-loaded @Query results rather than a
     /// SwiftData predicate, since there's no single field to match a
     /// free-text query against and the saved-chart count is always small.
+    ///
+    /// Gender uses an anchored (start-of-string) match rather than plain
+    /// contains -- "Male" is literally a substring of "Female", so a plain
+    /// .localizedCaseInsensitiveContains("male") would wrongly match both.
     private var filteredEntries: [ChartIndexEntry] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return entries }
@@ -36,6 +40,7 @@ struct SavedChartsListView: View {
             entry.name.localizedCaseInsensitiveContains(query)
                 || entry.placeName.localizedCaseInsensitiveContains(query)
                 || birthDisplay(for: entry).localizedCaseInsensitiveContains(query)
+                || entry.gender.range(of: query, options: [.caseInsensitive, .anchored]) != nil
         }
     }
     private var fontZoomStepLabel: String {
@@ -76,6 +81,9 @@ struct SavedChartsListView: View {
                             Text(entry.name).font(.headline)
                             Text(entry.placeName).font(.caption).foregroundStyle(.secondary)
                             Text(birthDisplay(for: entry)).font(.caption).foregroundStyle(.secondary)
+                            if !entry.gender.isEmpty {
+                                Text(entry.gender).font(.caption).foregroundStyle(.secondary)
+                            }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
@@ -152,7 +160,7 @@ struct SavedChartsListView: View {
                 .background(theme.secondaryBackground)
             }
             .navigationTitle("Saved Charts")
-            .searchable(text: $searchText, placement: .sidebar, prompt: "Search name, place, date, or time")
+            .searchable(text: $searchText, placement: .sidebar, prompt: "Search name, place, date, time, or gender")
             .toolbar {
                 ToolbarItem {
                     Button {
@@ -206,16 +214,24 @@ struct SavedChartsListView: View {
     /// build's default, already physically written to disk for existing
     /// rows before this fix -- so "" alone isn't enough to catch them).
     /// Either way this displays DOB times reformatted as if they were UTC,
-    /// which is wrong for anyone not actually born in that zone. One-time
-    /// per-entry repair by reading each affected chart's own JSON file
-    /// (cheap -- loadFile skips the full chart recompute -- and there are
-    /// only ever a handful of legacy entries, not a cost paid every launch
-    /// going forward).
+    /// which is wrong for anyone not actually born in that zone.
+    ///
+    /// Entries saved before `gender` existed on the index similarly have it
+    /// as "" -- backfilled here too, from the same file read, so existing
+    /// charts become gender-searchable/-displayed without needing to be
+    /// manually re-saved. Unlike the timezone case this isn't strictly
+    /// one-time: a chart whose gender is genuinely unset stays "" and gets
+    /// re-checked on every launch, but that's a handful of cheap file reads
+    /// (loadFile skips the full chart recompute) for a personal chart list,
+    /// not a real cost.
     private func repairLegacyTimeZonesIfNeeded() {
         var didRepair = false
-        for entry in entries where entry.timeZoneIdentifier.isEmpty || entry.timeZoneIdentifier == "UTC" {
+        for entry in entries where entry.timeZoneIdentifier.isEmpty || entry.timeZoneIdentifier == "UTC" || entry.gender.isEmpty {
             guard let file = try? ChartStore.loadFile(from: entry) else { continue }
             entry.timeZoneIdentifier = file.input.birthMoment.timeZoneIdentifier
+            if let gender = file.input.gender {
+                entry.gender = gender.rawValue
+            }
             didRepair = true
         }
         if didRepair {

@@ -20,13 +20,20 @@ final class ChartIndexEntry {
     /// location of charts already saved elsewhere -- each entry just
     /// keeps pointing at wherever its file actually is.
     var filePath: String
+    /// Gender.rawValue, or "" when unset (the chart's own gender is
+    /// optional) or not yet backfilled for entries saved before this field
+    /// existed (lightweight migration default) -- there's no repair pass
+    /// for this one since, unlike timeZoneIdentifier, a missing value here
+    /// isn't wrong, just unsearchable until the chart is next saved.
+    var gender: String = ""
 
-    init(id: UUID, name: String, dateOfBirth: Date, placeName: String, timeZoneIdentifier: String, filePath: String) {
+    init(id: UUID, name: String, dateOfBirth: Date, placeName: String, timeZoneIdentifier: String, filePath: String, gender: String = "") {
         self.id = id
         self.name = name
         self.dateOfBirth = dateOfBirth
         self.placeName = placeName
         self.timeZoneIdentifier = timeZoneIdentifier
         self.filePath = filePath
+        self.gender = gender
     }
 }

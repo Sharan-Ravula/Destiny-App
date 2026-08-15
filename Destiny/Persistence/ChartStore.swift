@@ -86,6 +86,7 @@ enum ChartStore {
             existing.placeName = record.input.placeName
             existing.timeZoneIdentifier = record.input.birthMoment.timeZoneIdentifier
             existing.filePath = newURL.path
+            existing.gender = record.input.gender?.rawValue ?? ""
         } else {
             try data.write(to: newURL, options: .atomic)
             let entry = ChartIndexEntry(
@@ -94,7 +95,8 @@ enum ChartStore {
                 dateOfBirth: try record.input.birthMoment.resolvedUTCDate(),
                 placeName: record.input.placeName,
                 timeZoneIdentifier: record.input.birthMoment.timeZoneIdentifier,
-                filePath: newURL.path
+                filePath: newURL.path,
+                gender: record.input.gender?.rawValue ?? ""
             )
             context.insert(entry)
         }
