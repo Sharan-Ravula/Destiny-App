@@ -3,23 +3,26 @@
 A native macOS app for Vedic (sidereal, Lahiri ayanamsa) astrology: birth
 chart calculation, all divisional charts (D1-D60), Vimshottari and Chara
 Dasha (down to the Pratyantardasha level, with the currently-running
-period highlighted), chart summary (doshas, conjunctions, aspects,
-karakas), and a live transit scrubber -- all computed locally via a
-vendored Swiss Ephemeris, no network access required.
+period highlighted), contextual per-chart analysis (doshas, conjunctions,
+aspects, karakas, Arudha Padas), and a live transit scrubber -- all
+computed locally via a vendored Swiss Ephemeris, no network access
+required.
 
 ## Features
 
-- Birth chart calculation (Ascendant, planetary positions, nakshatras,
-  retrograde/combustion) via Swiss Ephemeris, sidereal/Lahiri.
+- Birth chart calculation (Ascendant, planetary positions, nakshatras +
+  padas, retrograde/combustion) via Swiss Ephemeris, sidereal/Lahiri.
 - All divisional charts D2 through D60, each with its own genuinely
   varga-specific degree/nakshatra data (not repeated D1 values).
-- North Indian and South Indian chart diagram styles.
+- North Indian and South Indian chart diagram styles, with hover
+  highlighting of a planet's Graha Drishti aspects.
 - Vimshottari Dasha and Chara Dasha, 3 levels deep (Mahadasha /
   Antardasha / Pratyantardasha), with the period containing today's date
   highlighted and auto-expanded at every level.
-- Chart summary: Mangal/Sarpa dosha, conjunctions, graha drishti aspects,
-  house lordships, the 7-karaka (Jaimini) scheme, Arudha/Upapada Lagna,
-  Karakamsa.
+- Analysis panels alongside each chart (D1 and every divisional chart):
+  conjunctions, graha drishti, rashi drishti, and house lordships,
+  collapsible per section. D1 additionally shows Mangal/Sarpa dosha, the
+  7-karaka (Jaimini) scheme, all 12 Arudha Padas, and Karakamsa.
 - Explore Transits: a read-only view that scrubs a saved chart's date/time
   forward or backward (day/hour/minute/second granularity, by scrolling
   over the chart) and live-recomputes planetary positions -- never
@@ -57,16 +60,19 @@ Destiny/
 │   ├── Views/                       All SwiftUI views
 │   │   ├── SavedChartsListView.swift        Sidebar: chart list, New/Open, theme + font pickers
 │   │   ├── ChartInputFormView.swift         New/Edit chart form
-│   │   ├── ChartDetailView.swift            Tab host: D1 / Divisional Charts / Dashas / Summary
+│   │   ├── ChartDetailView.swift            Tab host: D1 Chart / Divisional Charts / Vimshottari Dasha / Chara Dasha
 │   │   ├── NorthIndianChartView.swift       Chart diagram, North Indian style
 │   │   ├── SouthIndianChartView.swift       Chart diagram, South Indian style
+│   │   ├── ChartLayoutData.swift            Shared chart-diagram data prep (placements, hover aspects)
 │   │   ├── ChartTableView.swift             D1 planetary positions table
 │   │   ├── DivisionalChartsView.swift       D2-D60 varga picker + diagram + table
-│   │   ├── VimshottariDashaView.swift       Vimshottari Dasha table, "Now" indicator
-│   │   ├── CharaDashaView.swift             Chara Dasha table, "Now" indicator
-│   │   ├── ChartSummaryView.swift           Doshas, conjunctions, aspects, karakas
+│   │   ├── AnalysisPanelView.swift          Conjunctions/Graha Drishti/Rashi Drishti/House Lordships panel
+│   │   ├── D1ReferencePanelView.swift       Doshas/Jaimini/Arudha Padas/Chara Karakas panel (D1-only)
+│   │   ├── VimshottariDashaView.swift       Vimshottari Dasha table, current-period highlight
+│   │   ├── CharaDashaView.swift             Chara Dasha table, current-period highlight
 │   │   ├── TransitExplorerView.swift        Read-only live transit scrubber
-│   │   └── ...                              (chart legend/theming/formatting helpers)
+│   │   ├── DashaDateFormatter.swift         Date/duration formatting, chart legend text builder
+│   │   └── ...                              (display-name/render-style helpers)
 │   ├── Persistence/
 │   │   └── ChartStore.swift             Save/load chart JSON; recomputes on every load
 │   ├── Geocoding/
@@ -81,6 +87,7 @@ Destiny/
     ├── Package.swift
     ├── Sources/
     │   ├── DestinyEngine/                Pure Swift: charts, vargas, dashas, doshas, karakas, ...
+    │   │   ├── VargaAnalysis.swift           Conjunctions/graha drishti/rashi drishti/lordships, shared by D1 and every varga
     │   │   └── Resources/Ephemeris/          Swiss Ephemeris data files (sepl_18.se1, semo_18.se1)
     │   └── CSwissEphemeris/              Vendored Swiss Ephemeris C library (unmodified)
     ├── LICENSE-swisseph, agpl-3.0.txt    Swiss Ephemeris licensing (AGPL-3.0)
