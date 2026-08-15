@@ -19,8 +19,25 @@ struct SavedChartsListView: View {
     @State private var showingAbout = false
     @State private var loadedRecord: ChartRecord?
     @State private var errorMessage: String?
+    @State private var searchText = ""
 
     private var theme: ColorTheme { ColorTheme.theme(forID: colorThemeID) }
+
+    /// Matches name, place, or the formatted date-of-birth/time-of-birth
+    /// string (e.g. "Aug 24, 2002" or "9:40 AM" both match, since
+    /// birthDisplay already combines both into one string) -- client-side
+    /// filtering over the already-loaded @Query results rather than a
+    /// SwiftData predicate, since there's no single field to match a
+    /// free-text query against and the saved-chart count is always small.
+    private var filteredEntries: [ChartIndexEntry] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return entries }
+        return entries.filter { entry in
+            entry.name.localizedCaseInsensitiveContains(query)
+                || entry.placeName.localizedCaseInsensitiveContains(query)
+                || birthDisplay(for: entry).localizedCaseInsensitiveContains(query)
+        }
+    }
     private var fontZoomStepLabel: String {
         switch fontZoomStep {
         case -3: return "Small"
@@ -51,7 +68,7 @@ struct SavedChartsListView: View {
                 .controlSize(.large)
                 .padding()
 
-                List(entries) { entry in
+                List(filteredEntries) { entry in
                     Button {
                         load(entry)
                     } label: {
@@ -84,6 +101,15 @@ struct SavedChartsListView: View {
                 .alternatingRowBackgrounds(.disabled)
                 .scrollContentBackground(.hidden)
                 .background(theme.secondaryBackground)
+                .overlay {
+                    if filteredEntries.isEmpty && !searchText.isEmpty {
+                        Text("No charts match \u{201C}\(searchText)\u{201D}")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding()
+                    }
+                }
 
                 Divider()
 
@@ -126,6 +152,7 @@ struct SavedChartsListView: View {
                 .background(theme.secondaryBackground)
             }
             .navigationTitle("Saved Charts")
+            .searchable(text: $searchText, placement: .sidebar, prompt: "Search name, place, date, or time")
             .toolbar {
                 ToolbarItem {
                     Button {
