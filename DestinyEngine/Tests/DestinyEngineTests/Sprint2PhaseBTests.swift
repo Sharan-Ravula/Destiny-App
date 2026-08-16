@@ -19,16 +19,18 @@ struct GrahaDrishtiTests {
 
 @Suite("MangalDosha")
 struct MangalDoshaTests {
-    @Test func marsInSecondFromVenusIsAfflicted() {
-        // Venus at Pisces 28.6 (house 1), Mars at Aries 6.3 (house 2 from Venus).
-        let result = MangalDosha.evaluate(marsLongitude: 6.33, lagnaLongitude: 200, moonLongitude: 100, venusLongitude: 358.6)
-        #expect(result.fromVenus == true)
+    @Test func marsInFirstFromLagnaIsAfflicted() {
+        // Lagna at Aries 0 (house 1), Mars at Aries 6.3 -- also house 1.
+        let result = MangalDosha.evaluate(marsLongitude: 6.33, lagnaLongitude: 0)
+        #expect(result.isPresent == true)
+        #expect(result.house == 1)
     }
 
     @Test func marsInThirdIsNotAfflicted() {
         // House 3 is not in the classical 1,2,4,7,8,12 list.
-        let result = MangalDosha.evaluate(marsLongitude: 65, lagnaLongitude: 0, moonLongitude: 200, venusLongitude: 200)
-        #expect(result.fromLagna == false)
+        let result = MangalDosha.evaluate(marsLongitude: 65, lagnaLongitude: 0)
+        #expect(result.isPresent == false)
+        #expect(result.house == 3)
     }
 }
 
@@ -72,7 +74,7 @@ struct ChartSummaryReferenceTests {
 
         print("\n=== Chart 1 - Sydney: Summary ===")
         print("Conjunctions: \(summary.conjunctions.map { "\($0.rasi): \($0.bodies.map(\.rawValue))" })")
-        print("Mangal Dosha: fromLagna=\(summary.mangalDosha.fromLagna) fromMoon=\(summary.mangalDosha.fromMoon) fromVenus=\(summary.mangalDosha.fromVenus)")
+        print("Mangal Dosha present (Lagna-only): \(summary.mangalDosha.isPresent)")
         print("Sarpa Dosha present: \(summary.sarpaDosha.isPresent)")
         print("Aspects: \(summary.aspects.map { "\($0.from.rawValue)->\($0.toRasi) (\($0.houseNumber)) occupants=\($0.toOccupants.map(\.rawValue))" })")
 
@@ -81,11 +83,11 @@ struct ChartSummaryReferenceTests {
         #expect(summary.conjunctions.contains { $0.rasi == .pisces && Set($0.bodies) == [.sun, .mercury, .venus] })
         #expect(summary.conjunctions.contains { $0.rasi == .aries && Set($0.bodies) == [.mars, .rahu] })
 
-        // Mars (Aries) is the 2nd house from Venus (Pisces) -- afflicted.
-        // Not afflicted from Lagna (house 11) or Moon (house 5).
-        #expect(summary.mangalDosha.fromVenus == true)
-        #expect(summary.mangalDosha.fromLagna == false)
-        #expect(summary.mangalDosha.fromMoon == false)
+        // Mars (Aries) is house 11 from Lagna -- not in the afflicted
+        // {1,2,4,7,8,12} set, so Mangal Dosha (Lagna-only) is absent here,
+        // even though Mars would be afflicted counted from Venus (no
+        // longer checked).
+        #expect(summary.mangalDosha.isPresent == false)
 
         // Venus at Pisces 28.6 (in [20,30)) and Saturn at Scorpio 4.4 (in
         // [0,20)) both fall in a Sarpa range; nobody else does.

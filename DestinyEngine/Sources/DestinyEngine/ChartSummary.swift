@@ -88,10 +88,10 @@ public struct ChartSummary: Codable, Sendable, Equatable {
         let rashiAspects = analysis.rashiAspects
 
         let mangalDosha: MangalDoshaResult
-        if let mars = longitudes[.mars], let moon = longitudes[.moon], let venus = longitudes[.venus] {
-            mangalDosha = MangalDosha.evaluate(marsLongitude: mars, lagnaLongitude: ascendantLongitude, moonLongitude: moon, venusLongitude: venus)
+        if let mars = longitudes[.mars] {
+            mangalDosha = MangalDosha.evaluate(marsLongitude: mars, lagnaLongitude: ascendantLongitude)
         } else {
-            mangalDosha = MangalDoshaResult(fromLagna: false, fromMoon: false, fromVenus: false)
+            mangalDosha = MangalDoshaResult(isPresent: false, house: 0)
         }
 
         let sarpaDosha = SarpaDosha.evaluate(longitudes: longitudes)
