@@ -5,24 +5,23 @@ struct ChartDetailView: View {
     let record: ChartRecord
 
     private enum Section: String, CaseIterable, Identifiable {
-        case d1 = "D1 Chart"
-        case vargas = "Divisional Charts"
+        case charts = "Charts"
         case vimshottari = "Vimshottari Dasha"
         case chara = "Chara Dasha"
         var id: String { rawValue }
     }
 
-    @State private var section: Section = .d1
-    @State private var d1Style: ChartRenderStyle = .northIndian
-    @State private var selectedVarga: DivisionalChart = .d9
+    @State private var section: Section = .charts
+    /// D1 by default -- D1 and every divisional chart share one page/one
+    /// picker now (DivisionalChartsView), rather than D1 having its own
+    /// separate page.
+    @State private var selectedVarga: DivisionalChart = .d1
     @State private var showingTransitExplorer = false
+    @State private var showingPDFExport = false
 
-    /// Whatever chart is currently on screen -- D1 by default, or
-    /// whichever varga is selected when the Divisional Cha     rts tab is
-    /// active -- so "Explore Transits" opens already showing that chart.
-    private var transitExplorerInitialVarga: DivisionalChart {
-        section == .vargas ? selectedVarga : .d1
-    }
+    /// Whatever chart is currently selected in DivisionalChartsView's own
+    /// picker -- so "Explore Transits" opens already showing that chart.
+    private var transitExplorerInitialVarga: DivisionalChart { selectedVarga }
     @AppStorage("colorTheme") private var colorThemeID: String = ColorTheme.system.id
     private var theme: ColorTheme { ColorTheme.theme(forID: colorThemeID) }
 
@@ -95,9 +94,7 @@ struct ChartDetailView: View {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 16) {
                             switch section {
-                            case .d1:
-                                d1Section(availableWidth: geometry.size.width)
-                            case .vargas:
+                            case .charts:
                                 DivisionalChartsView(computation: record.computation, selectedVarga: $selectedVarga, availableWidth: geometry.size.width)
                             case .vimshottari, .chara:
                                 EmptyView()
@@ -114,6 +111,9 @@ struct ChartDetailView: View {
         .background(theme.background)
         .sheet(isPresented: $showingTransitExplorer) {
             TransitExplorerView(record: record, initialVarga: transitExplorerInitialVarga)
+        }
+        .sheet(isPresented: $showingPDFExport) {
+            PDFExportOptionsView(record: record)
         }
     }
 
@@ -150,12 +150,21 @@ struct ChartDetailView: View {
         }
         .frame(maxWidth: .infinity, alignment: .center)
         .overlay(alignment: .trailing) {
-            Button {
-                showingTransitExplorer = true
-            } label: {
-                Label("Explore Transits", systemImage: "clock.arrow.2.circlepath")
+            HStack(spacing: 8) {
+                Button {
+                    showingPDFExport = true
+                } label: {
+                    Label("Export PDF", systemImage: "square.and.arrow.up")
+                }
+                .buttonStyle(.bordered)
+
+                Button {
+                    showingTransitExplorer = true
+                } label: {
+                    Label("Explore Transits", systemImage: "clock.arrow.2.circlepath")
+                }
+                .buttonStyle(.bordered)
             }
-            .buttonStyle(.bordered)
         }
     }
 
@@ -163,130 +172,5 @@ struct ChartDetailView: View {
         Text(text)
             .foregroundStyle(.secondary)
             .fontWeight(.semibold)
-    }
-
-    /// Body -> D1 rasi, for AnalysisPanelView's Rashi Drishti occupant
-    /// labels (VargaAnalysis itself carries no placements).
-    private var d1Placements: [CelestialBody: Rasi] {
-        var result: [CelestialBody: Rasi] = [:]
-        for row in record.computation.rows { result[row.body] = row.rasi }
-        return result
-    }
-
-    /// The 4 mechanical categories are already on computation.summary
-    /// (unchanged, still D1-specific) -- just repackaged into the shared
-    /// VargaAnalysis shape so AnalysisPanelView can render D1 and every
-    /// varga with the same view.
-    private var d1Analysis: VargaAnalysis {
-        let summary = record.computation.summary
-        return VargaAnalysis(
-            conjunctions: summary.conjunctions, aspects: summary.aspects,
-            ascendantAspectedBy: summary.ascendantAspectedBy, houseLordships: summary.houseLordships,
-            rashiAspects: summary.rashiAspects
-        )
-    }
-
-    /// Scales panel width and chart size down together as available width
-    /// shrinks (sidebar opening/closing, window resize), computed fresh
-    /// from GeometryReader's measured width on every layout pass -- so it
-    /// reacts automatically to the sidebar's actual current state rather
-    /// than assuming one fixed size. No ScrollView involved (that
-    /// combination caused its own rendering problems for no benefit) --
-    /// just a plain HStack sized to always fit exactly.
-    private static func panelAndChartSize(availableWidth: CGFloat, panelCount: CGFloat, chartCount: CGFloat, idealChart: CGFloat, minChart: CGFloat, chartSpacing: CGFloat) -> (panel: CGFloat, chart: CGFloat) {
-        let idealPanel: CGFloat = 320
-        let minPanel: CGFloat = 220
-        let fixedSpacing: CGFloat = 20 * 2 + chartSpacing // gaps around the center column + between charts
-
-        let idealContent = idealPanel * panelCount + idealChart * chartCount
-        guard availableWidth < idealContent + fixedSpacing else {
-            return (idealPanel, idealChart)
-        }
-
-        let availableForContent = max(0, availableWidth - fixedSpacing)
-        let scale = idealContent > 0 ? availableForContent / idealContent : 1
-        var panel = idealPanel * scale
-        var chart = idealChart * scale
-
-        // If scaling alone would push one dimension below its floor,
-        // clamp it and let the other absorb the remaining budget so the
-        // total still fits exactly instead of drifting past availableWidth.
-        if panel < minPanel {
-            panel = minPanel
-            chart = chartCount > 0 ? max(0, availableForContent - minPanel * panelCount) / chartCount : chart
-        } else if chart < minChart {
-            chart = minChart
-            panel = panelCount > 0 ? max(0, availableForContent - minChart * chartCount) / panelCount : panel
-        }
-
-        return (max(minPanel, panel), max(minChart, chart))
-    }
-
-    /// Just the D1 (Rasi) chart -- D9 used to sit alongside it here, but
-    /// two charts plus two side panels made this page's alignment fragile
-    /// (see the panel-sizing history above), and D9 (and every other
-    /// varga) already has its own full page with the same analysis
-    /// panel/table treatment on Divisional Charts. Dropping to one chart
-    /// also means it can be shown meaningfully larger.
-    private func d1Section(availableWidth: CGFloat) -> some View {
-        let sizes = Self.panelAndChartSize(availableWidth: availableWidth, panelCount: 2, chartCount: 1, idealChart: 460, minChart: 320, chartSpacing: 0)
-
-        return VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 20) {
-                AnalysisPanelView(analysis: d1Analysis, placements: d1Placements, sections: .exceptHouseLordships)
-                    .frame(width: sizes.panel, alignment: .leading)
-
-                VStack(alignment: .leading, spacing: 12) {
-                    Picker("Chart Style", selection: $d1Style) {
-                        ForEach(ChartRenderStyle.allCases) { style in
-                            Text(style.rawValue).tag(style)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(maxWidth: 300)
-                    .frame(maxWidth: .infinity, alignment: .center)
-
-                    // A fixed size (not maxWidth) on the chart itself,
-                    // then a separate outer frame to center it -- see
-                    // DivisionalChartsView's chart for why maxWidth+Spacer
-                    // wasn't reliable with these GeometryReader-based
-                    // chart views.
-                    chartView(layout: ChartLayoutData(computation: record.computation))
-                        .frame(width: sizes.chart, height: sizes.chart)
-                        .frame(maxWidth: .infinity, alignment: .center)
-
-                    chartLegendText(
-                        theme: theme,
-                        abbreviations: [
-                            ("Asc", "Ascendant"), ("Ar", "Arudha Lagna"), ("Up", "Upapada Lagna"),
-                        ],
-                        markers: [("*", "combust"), ("^", "Retrograde")]
-                    )
-                    .font(.caption2)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .fixedSize(horizontal: false, vertical: true)
-                }
-                .frame(maxWidth: .infinity)
-
-                VStack(alignment: .leading, spacing: 16) {
-                    D1ReferencePanelView(computation: record.computation)
-                    AnalysisPanelView(analysis: d1Analysis, placements: d1Placements, sections: .houseLordshipsOnly)
-                }
-                .frame(width: sizes.panel, alignment: .leading)
-            }
-
-            Text("Planetary Positions").font(.headline)
-            ChartTableView(computation: record.computation)
-        }
-    }
-
-    @ViewBuilder
-    private func chartView(layout: ChartLayoutData) -> some View {
-        switch d1Style {
-        case .northIndian:
-            NorthIndianChartView(layout: layout)
-        case .southIndian:
-            SouthIndianChartView(layout: layout)
-        }
     }
 }

@@ -133,7 +133,10 @@ enum ChartStore {
     static func delete(id: UUID, in context: ModelContext) throws {
         let descriptor = FetchDescriptor<ChartIndexEntry>(predicate: #Predicate { $0.id == id })
         if let existing = try context.fetch(descriptor).first {
-            try? FileManager.default.removeItem(at: fileURL(for: existing))
+            // trashItem (not removeItem) -- moves the file to the Trash so
+            // an accidental delete is still recoverable, rather than
+            // wiping it from disk immediately.
+            try? FileManager.default.trashItem(at: fileURL(for: existing), resultingItemURL: nil)
             context.delete(existing)
             try context.save()
         }

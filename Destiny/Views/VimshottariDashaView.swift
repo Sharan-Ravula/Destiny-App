@@ -117,7 +117,8 @@ struct VimshottariDashaView: View {
                 .background(rowHighlight(row))
             }
             TableColumn("Duration") { row in
-                Text(dashaDurationDisplay(years: row.period.endDate.timeIntervalSince(row.period.startDate) / (VimshottariDasha.daysPerYear * 86400)))
+                let years = row.period.endDate.timeIntervalSince(row.period.startDate) / (VimshottariDasha.daysPerYear * 86400)
+                Text(row.level == 0 ? dashaDurationDisplay(years: years) : dashaSubPeriodDurationDisplay(years: years))
                     .font(cellFont)
                     .foregroundStyle(theme.number)
                     .frame(maxWidth: .infinity, alignment: .leading)

@@ -16,8 +16,18 @@ struct DestinyApp: App {
         WindowGroup {
             ContentView()
         }
+        // showsTitle: false -- SavedChartsListView's .principal toolbar
+        // item supplies the (gradient, centered) "Destiny" title itself;
+        // without this, the window's own native title text renders too,
+        // showing "Destiny" twice.
+        .windowToolbarStyle(.unifiedCompact(showsTitle: false))
         .modelContainer(for: ChartIndexEntry.self)
         .commands {
+            CommandGroup(replacing: .appInfo) {
+                Button("About Destiny") {
+                    NotificationCenter.default.post(name: .aboutRequested, object: nil)
+                }
+            }
             CommandGroup(after: .newItem) {
                 Button("Open Chart...") {
                     NotificationCenter.default.post(name: .importChartRequested, object: nil)

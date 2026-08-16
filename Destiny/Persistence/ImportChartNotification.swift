@@ -5,4 +5,8 @@ import Foundation
 /// actually available to save the imported chart.
 extension Notification.Name {
     static let importChartRequested = Notification.Name("importChartRequested")
+    /// Posted by the Destiny > About Destiny app-menu command
+    /// (DestinyApp.swift), handled by SavedChartsListView, which owns the
+    /// showingAbout sheet state.
+    static let aboutRequested = Notification.Name("aboutRequested")
 }

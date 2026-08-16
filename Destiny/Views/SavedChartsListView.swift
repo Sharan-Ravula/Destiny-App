@@ -20,8 +20,26 @@ struct SavedChartsListView: View {
     @State private var loadedRecord: ChartRecord?
     @State private var errorMessage: String?
     @State private var searchText = ""
+    /// Picked once when this view is first created (i.e. once per app
+    /// launch), not re-randomized on every redraw -- a continuously
+    /// animating/cycling title gradient would need a repeating animation
+    /// loop, forcing the window to keep redrawing for as long as it's
+    /// open, which is a real (if small) ongoing CPU/GPU cost. A gradient
+    /// that's simply chosen once and then static costs nothing beyond a
+    /// normal text render.
+    @State private var titleHue = Double.random(in: 0...1)
 
     private var theme: ColorTheme { ColorTheme.theme(forID: colorThemeID) }
+
+    private var titleGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color(hue: titleHue, saturation: 0.7, brightness: 0.95),
+                Color(hue: (titleHue + 0.18).truncatingRemainder(dividingBy: 1), saturation: 0.7, brightness: 0.95),
+            ],
+            startPoint: .leading, endPoint: .trailing
+        )
+    }
 
     /// Matches name, place, gender, or the formatted date-of-birth/time-of-
     /// birth string (e.g. "Aug 24, 2002" or "9:40 AM" both match, since
@@ -43,36 +61,23 @@ struct SavedChartsListView: View {
                 || entry.gender.range(of: query, options: [.caseInsensitive, .anchored]) != nil
         }
     }
-    private var fontZoomStepLabel: String {
-        switch fontZoomStep {
-        case -3: return "Small"
-        case 3: return "Large"
-        default: return "Normal"
+
+    @ViewBuilder
+    private func fontSizeButton(_ label: String, step: Int) -> some View {
+        Button {
+            fontZoomStep = step
+        } label: {
+            if fontZoomStep == step {
+                Label(label, systemImage: "checkmark")
+            } else {
+                Text(label)
+            }
         }
     }
 
     var body: some View {
         NavigationSplitView {
             VStack(spacing: 0) {
-                HStack {
-                    Button {
-                        formTarget = FormTarget(existingRecord: nil)
-                    } label: {
-                        Label("New Chart", systemImage: "plus")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-
-                    Button {
-                        importChart()
-                    } label: {
-                        Label("Open", systemImage: "folder")
-                    }
-                    .buttonStyle(.bordered)
-                }
-                .controlSize(.large)
-                .padding()
-
                 List(filteredEntries) { entry in
                     Button {
                         load(entry)
@@ -100,6 +105,14 @@ struct SavedChartsListView: View {
                             delete(entry)
                         }
                     }
+                    // These rows are a custom Button (not List's built-in
+                    // selection binding, since a Button lets each row also
+                    // carry its own contextMenu) -- so there's no selection
+                    // highlight for free. listRowBackground on the whole
+                    // row (not .background on the label content) so the
+                    // highlight fills the row's full width/insets, not
+                    // just wherever the text happens to sit.
+                    .listRowBackground(entry.id == loadedRecord?.id ? theme.accent.opacity(0.18) : Color.clear)
                 }
                 // Themed background needs .scrollContentBackground(.hidden)
                 // first -- otherwise List keeps its native fill underneath
@@ -118,58 +131,9 @@ struct SavedChartsListView: View {
                             .padding()
                     }
                 }
-
-                Divider()
-
-                // Plain dropdown boxes in the sidebar itself, not toolbar
-                // items -- the toolbar collapsed them behind a "»" overflow
-                // chevron (with an extra submenu arrow to open each one) once
-                // there wasn't room for every item, which wasn't discoverable.
-                VStack(alignment: .leading, spacing: 10) {
-                    // Menu (not Picker) here on purpose: a menu-style
-                    // Picker draws its selected-value text via the
-                    // underlying NSPopUpButton's own title, which ignores
-                    // .foregroundStyle and (under a forced light/dark
-                    // appearance mismatch with the system's actual one)
-                    // can render at near-invisible contrast against our
-                    // flat custom background. Menu's label is plain
-                    // SwiftUI content, so an explicit color always wins.
-                    LabeledContent("Themes") {
-                        Menu {
-                            ForEach(ColorTheme.all) { candidate in
-                                Button(candidate.name) { colorThemeID = candidate.id }
-                            }
-                        } label: {
-                            Text(theme.name).foregroundStyle(.primary)
-                        }
-                        .fixedSize()
-                    }
-                    LabeledContent("Font Size") {
-                        Menu {
-                            Button("Small") { fontZoomStep = -3 }
-                            Button("Normal") { fontZoomStep = 0 }
-                            Button("Large") { fontZoomStep = 3 }
-                        } label: {
-                            Text(fontZoomStepLabel).foregroundStyle(.primary)
-                        }
-                        .fixedSize()
-                    }
-                }
-                .padding()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(theme.secondaryBackground)
             }
             .navigationTitle("Saved Charts")
             .searchable(text: $searchText, placement: .sidebar, prompt: "Search name, place, date, time, or gender")
-            .toolbar {
-                ToolbarItem {
-                    Button {
-                        showingAbout = true
-                    } label: {
-                        Label("About", systemImage: "info.circle")
-                    }
-                }
-            }
             .sheet(item: $formTarget) { target in
                 ChartInputFormView(existingRecord: target.existingRecord) { record in
                     loadedRecord = record
@@ -180,6 +144,9 @@ struct SavedChartsListView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .importChartRequested)) { _ in
                 importChart()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .aboutRequested)) { _ in
+                showingAbout = true
             }
             .task {
                 repairLegacyTimeZonesIfNeeded()
@@ -196,6 +163,76 @@ struct SavedChartsListView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(theme.background)
             }
+        }
+        // Attached to the NavigationSplitView itself, not the sidebar
+        // column's own view -- scoping it to the sidebar meant these items
+        // could vanish or get shuffled into the "»" overflow chevron
+        // whenever the sidebar was collapsed/reopened, since SwiftUI
+        // rebuilds that column's toolbar items on each visibility change.
+        // A window-level toolbar isn't tied to that lifecycle.
+        .toolbar {
+            // .sharedBackgroundVisibility(.hidden) on each item -- without
+            // it, macOS's toolbar automatically merges adjacent icon
+            // buttons into one shared pill/capsule background, which read
+            // as a single segmented control instead of separate buttons.
+            ToolbarItem {
+                Button {
+                    formTarget = FormTarget(existingRecord: nil)
+                } label: {
+                    Label("New Chart", systemImage: "plus")
+                        .labelStyle(.titleAndIcon)
+                }
+            }
+            .sharedBackgroundVisibility(.hidden)
+            ToolbarItem {
+                Button {
+                    importChart()
+                } label: {
+                    Label("Open", systemImage: "folder")
+                        .labelStyle(.titleAndIcon)
+                }
+            }
+            .sharedBackgroundVisibility(.hidden)
+            // Theme and Font Size as 2 separate icon-only buttons (no text
+            // label on either -- a palette/text-size icon is self-
+            // explanatory) rather than one combined menu.
+            ToolbarItem {
+                Menu {
+                    ForEach(ColorTheme.all) { candidate in
+                        Button {
+                            colorThemeID = candidate.id
+                        } label: {
+                            if candidate.id == colorThemeID {
+                                Label(candidate.name, systemImage: "checkmark")
+                            } else {
+                                Text(candidate.name)
+                            }
+                        }
+                    }
+                } label: {
+                    Label("Theme", systemImage: "paintpalette")
+                }
+            }
+            .sharedBackgroundVisibility(.hidden)
+            ToolbarItem {
+                Menu {
+                    fontSizeButton("Small", step: -3)
+                    fontSizeButton("Normal", step: 0)
+                    fontSizeButton("Large", step: 3)
+                } label: {
+                    Label("Font Size", systemImage: "textformat.size")
+                }
+            }
+            .sharedBackgroundVisibility(.hidden)
+            // .principal is the toolbar's centered slot -- this replaces
+            // the plain default window title text with the gradient
+            // version instead of just adding another item alongside it.
+            ToolbarItem(placement: .principal) {
+                Text("Destiny")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(titleGradient)
+            }
+            .sharedBackgroundVisibility(.hidden)
         }
     }
 
@@ -262,41 +299,55 @@ struct SavedChartsListView: View {
         }
     }
 
-    /// Lets the user pick a chart .json file from anywhere on disk (not
-    /// just the app's own Charts folder -- e.g. one shared from outside
-    /// the app), decodes it, recomputes its chart, and registers it into
-    /// the saved-charts list. Re-importing a file whose id already exists
-    /// just refreshes that chart in place (same overwrite behavior as
-    /// ChartStore.save's normal update path), rather than creating a
-    /// duplicate.
+    /// Lets the user pick one or more chart .json files from anywhere on
+    /// disk (not just the app's own Charts folder -- e.g. shared from
+    /// outside the app), decodes each, recomputes its chart, and registers
+    /// it into the saved-charts list -- every imported file shows up in
+    /// the sidebar via the @Query-backed entries list, not just the last
+    /// one. Re-importing a file whose id already exists just refreshes
+    /// that chart in place (same overwrite behavior as ChartStore.save's
+    /// normal update path), rather than creating a duplicate. One file
+    /// failing to import doesn't stop the rest -- failures are collected
+    /// and reported together at the end.
     private func importChart() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
-        panel.allowsMultipleSelection = false
+        panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
-        panel.message = "Choose a Destiny chart JSON file to import"
+        panel.message = "Choose Destiny chart JSON file(s) to import"
 
-        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
+        let urls = panel.urls
 
         Task {
-            do {
-                let data = try Data(contentsOf: url)
-                let decoder = JSONDecoder()
-                decoder.dateDecodingStrategy = .iso8601
-                let file = try decoder.decode(ChartFile.self, from: data)
-                let computation = try await ChartCalculator.computeChart(
-                    birthMoment: file.input.birthMoment, latitude: file.input.latitude, longitude: file.input.longitude
-                )
-                let record = ChartRecord(
-                    id: file.id ?? UUID(), engineVersion: file.engineVersion ?? ChartCalculator.engineVersion,
-                    input: file.input, computation: computation
-                )
-                try ChartStore.save(record, in: modelContext)
-                loadedRecord = record
-                errorMessage = nil
-            } catch {
-                errorMessage = "Failed to import chart: \(error)"
+            var lastRecord: ChartRecord?
+            var failures: [String] = []
+            for url in urls {
+                do {
+                    let data = try Data(contentsOf: url)
+                    let decoder = JSONDecoder()
+                    decoder.dateDecodingStrategy = .iso8601
+                    let file = try decoder.decode(ChartFile.self, from: data)
+                    let computation = try await ChartCalculator.computeChart(
+                        birthMoment: file.input.birthMoment, latitude: file.input.latitude, longitude: file.input.longitude
+                    )
+                    let record = ChartRecord(
+                        id: file.id ?? UUID(), engineVersion: file.engineVersion ?? ChartCalculator.engineVersion,
+                        input: file.input, computation: computation
+                    )
+                    try ChartStore.save(record, in: modelContext)
+                    lastRecord = record
+                } catch {
+                    failures.append("\(url.lastPathComponent): \(error)")
+                }
             }
+            // Opens whichever file was imported last, matching the old
+            // single-file behavior of jumping straight to the imported
+            // chart -- the rest are just a click away in the sidebar.
+            if let lastRecord {
+                loadedRecord = lastRecord
+            }
+            errorMessage = failures.isEmpty ? nil : "Failed to import \(failures.count) file(s):\n\(failures.joined(separator: "\n"))"
         }
     }
 

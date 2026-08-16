@@ -2,17 +2,17 @@ import SwiftUI
 import DestinyEngine
 
 /// The 4 "mechanical" (purely sign-position) analysis categories -- shared
-/// between the D1 Chart page and the Divisional Charts page, since
-/// VargaAnalysis is computed identically for D1 and every other varga.
-/// `placements` is needed alongside `analysis` just to label which
+/// across D1 and every divisional chart on the Charts page (DivisionalChartsView),
+/// since VargaAnalysis is computed identically for D1 and every other
+/// varga. `placements` is needed alongside `analysis` just to label which
 /// planets occupy each rasi in the Rashi Drishti section (VargaAnalysis
 /// itself doesn't carry placements). `title` is shown as a header when
 /// more than one of these appears on the same page (e.g. D1 and D9 side
 /// by side) so it's clear which chart each panel describes.
 struct AnalysisPanelView: View {
     /// Which of the 4 sections to show -- lets a caller split them across
-    /// two side-by-side panels (e.g. the Divisional Charts page, which
-    /// otherwise wasted its whole left side as an empty balancing spacer)
+    /// two side-by-side panels (the Charts page, which otherwise wasted
+    /// its whole left side as an empty balancing spacer for non-D1 charts)
     /// instead of always showing all 4 together. Grouped as "the two
     /// aspect/drishti categories" (rashi + graha) vs. "the two placement-
     /// fact categories" (conjunctions + lordships), rather than pairing
@@ -21,8 +21,9 @@ struct AnalysisPanelView: View {
         case all
         case rashiAndGrahaDrishti
         case conjunctionsAndLordships
-        /// D1 Chart page: everything except House Lordships, which moves
-        /// to join D1ReferencePanelView on the other side instead.
+        /// When D1 is selected on the Charts page: everything except House
+        /// Lordships, which moves to join D1ReferencePanelView on the
+        /// other side instead.
         case exceptHouseLordships
         case houseLordshipsOnly
     }

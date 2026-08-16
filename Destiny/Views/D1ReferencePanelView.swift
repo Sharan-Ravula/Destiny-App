@@ -3,14 +3,19 @@ import DestinyEngine
 
 /// D1-only reference data that doesn't extend to other vargas (see
 /// VargaAnalysis's doc comment for why): doshas, Arudha/Upapada Lagna,
-/// Karakamsa, and the 7 Chara Karakas. Lives only on the D1 Chart page's
-/// side panel -- there is no standalone Summary tab anymore.
+/// Karakamsa, and the 7 Chara Karakas. Shown only when D1 is selected on
+/// the Charts page (DivisionalChartsView) -- there is no standalone
+/// Summary tab anymore.
 struct D1ReferencePanelView: View {
     let computation: ChartComputation
+    /// Set only by ChartPDFExporter, to force a light/print-friendly theme
+    /// regardless of the live app theme -- nil (the default) uses whatever
+    /// colorTheme is currently selected, as before.
+    var overrideTheme: ColorTheme?
     private var summary: ChartSummary { computation.summary }
     @AppStorage("colorTheme") private var colorThemeID: String = ColorTheme.system.id
     @Environment(\.fontZoomMultiplier) private var fontZoomMultiplier
-    private var theme: ColorTheme { ColorTheme.theme(forID: colorThemeID) }
+    private var theme: ColorTheme { overrideTheme ?? ColorTheme.theme(forID: colorThemeID) }
 
     /// Literal point sizes (not .caption/.subheadline) so this scales with
     /// the app's Cmd +/- text zoom -- matches AnalysisPanelView's sizing.
@@ -51,11 +56,22 @@ struct D1ReferencePanelView: View {
 
     private var mangalDoshaDetail: String? {
         guard summary.mangalDosha.isPresent else { return nil }
-        var sources: [String] = []
-        if summary.mangalDosha.fromLagna { sources.append("Lagna") }
-        if summary.mangalDosha.fromMoon { sources.append("Moon") }
-        if summary.mangalDosha.fromVenus { sources.append("Venus") }
-        return sources.joined(separator: ", ")
+        return "Asc, \(ordinal(summary.mangalDosha.house)) house Mars"
+    }
+
+    /// "1st"/"2nd"/"3rd"/"4th" etc. -- only houses 1,2,4,7,8,12 are ever
+    /// passed in (the afflicted set Mangal Dosha checks), so the 11-13
+    /// "th" exception only ever actually matters for 12.
+    private func ordinal(_ n: Int) -> String {
+        let suffix: String
+        switch (n % 100, n % 10) {
+        case (11, _), (12, _), (13, _): suffix = "th"
+        case (_, 1): suffix = "st"
+        case (_, 2): suffix = "nd"
+        case (_, 3): suffix = "rd"
+        default: suffix = "th"
+        }
+        return "\(n)\(suffix)"
     }
 
     /// One concatenated Text (not separate Text views in the HStack) for

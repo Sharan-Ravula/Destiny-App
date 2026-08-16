@@ -116,7 +116,7 @@ struct CharaDashaView: View {
                 .background(rowHighlight(row))
             }
             TableColumn("Duration") { row in
-                Text(dashaDurationDisplay(years: row.period.years))
+                Text(row.level == 0 ? dashaDurationDisplay(years: row.period.years) : dashaSubPeriodDurationDisplay(years: row.period.years))
                     .font(cellFont)
                     .foregroundStyle(theme.number)
                     .frame(maxWidth: .infinity, alignment: .leading)

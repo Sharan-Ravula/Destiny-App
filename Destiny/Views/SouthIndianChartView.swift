@@ -7,8 +7,11 @@ import DestinyEngine
 /// label in each cell.
 struct SouthIndianChartView: View {
     let layout: ChartLayoutData
+    /// Set only by ChartPDFExporter, to force a light/print-friendly theme
+    /// regardless of the live app theme.
+    var overrideTheme: ColorTheme?
     @AppStorage("colorTheme") private var colorThemeID: String = ColorTheme.system.id
-    private var theme: ColorTheme { ColorTheme.theme(forID: colorThemeID) }
+    private var theme: ColorTheme { overrideTheme ?? ColorTheme.theme(forID: colorThemeID) }
     @State private var hoveredRasi: Rasi?
 
     private var aspectedRasis: Set<Rasi> {
