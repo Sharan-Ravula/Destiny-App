@@ -21,8 +21,17 @@ required.
   highlighted and auto-expanded at every level.
 - Analysis panels alongside each chart (D1 and every divisional chart):
   conjunctions, graha drishti, rashi drishti, and house lordships,
-  collapsible per section. D1 additionally shows Mangal/Sarpa dosha, the
-  7-karaka (Jaimini) scheme, all 12 Arudha Padas, and Karakamsa.
+  collapsible per section. D1 additionally shows Mangal dosha (Lagna-only,
+  with the triggering house), Sarpa dosha, the 7-karaka (Jaimini) scheme,
+  all 12 Arudha Padas, and Karakamsa.
+- Export PDF: pick a chart style (North Indian/South Indian/both) and any
+  subset of D1 + divisional charts to export as a light/print-themed PDF
+  -- a cover page with birth details and D1's doshas/Karakamsa/Arudha
+  Padas/Chara Karakas, then a diagram + planetary-positions table per
+  selected chart.
+- Independent chart-size zoom (+/- control, separate from text zoom),
+  alongside North/South Indian style and D1 + every divisional chart on
+  one shared page/picker.
 - Explore Transits: a read-only view that scrubs a saved chart's date/time
   forward or backward (day/hour/minute/second granularity, by scrolling
   over the chart) and live-recomputes planetary positions -- never
@@ -30,8 +39,68 @@ required.
 - Fully offline place-of-birth search (bundled GeoNames extract).
 - 30 built-in color/text themes (including several based on well-known
   editor themes), plus independent text zoom (Cmd +/-).
+- Sidebar search across saved charts by name, place of birth, gender, or
+  date/time of birth; supports selecting and importing multiple chart
+  JSON files at once.
 - Charts are saved as plain JSON files (just name/place/date/time/gender),
   recomputed fresh on every load rather than caching derived output.
+  Deleting a chart moves its file to the Trash rather than deleting it
+  permanently.
+
+## Screenshots
+
+### Charts page
+Sidebar search, the D1 chart (South Indian style shown here), doshas/
+Karakamsa/Arudha Padas/Chara Karakas/House Lordships, conjunctions/aspects,
+and the planetary positions table.
+
+![Charts page overview](Ui-Overview/Full-overview.png)
+
+### Varga picker
+D1 sits alongside every divisional chart (D2-D60) in one picker on the
+same page -- selecting a different one swaps the diagram, analysis
+panels, and table together.
+
+![Varga picker](Ui-Overview/Vargas.png)
+
+### Hover highlighting, North Indian vs. South Indian
+Hovering a planet highlights its own house and every house it aspects
+(Graha Drishti), using each house's actual diamond/triangle shape on the
+North Indian chart -- not an approximated box.
+
+| North Indian | South Indian |
+|---|---|
+| ![North Indian hover, example 1](Ui-Overview/highlighted-aspects-1-north-indian-chart.png) | ![South Indian hover, example 1](Ui-Overview/highlighted-aspects-1-south-indian-chart.png) |
+| ![North Indian hover, example 2](Ui-Overview/highlighted-aspects-2-north-indian-chart.png) | ![South Indian hover, example 2](Ui-Overview/highlighted-aspects-2-south-indian-chart.png) |
+
+### Vimshottari Dasha
+Mahadasha/Antardasha/Pratyantardasha, auto-expanded to and highlighting
+the period containing today's date.
+
+![Vimshottari Dasha](Ui-Overview/Vimshottari-dasha.png)
+
+### Chara Dasha
+Same current-period auto-expand/highlight behavior as Vimshottari Dasha.
+
+![Chara Dasha](Ui-Overview/Chara-dasha.png)
+
+### Explore Transits
+Scrub a saved chart's date/time forward or backward and watch planetary
+positions recompute live, without modifying the original saved chart.
+
+![Explore Transits](Ui-Overview/explore-transits.png)
+
+### Export PDF
+Choose a chart style and any subset of D1 + divisional charts to export
+as a light/print-themed PDF.
+
+![Export PDF options](Ui-Overview/export-pdf.png)
+
+### Themes
+30 built-in color/text themes, including several based on well-known
+editor themes.
+
+![Theme picker](Ui-Overview/themes.png)
 
 ## Requirements
 
@@ -55,26 +124,30 @@ Destiny/
 │   │   ├── ChartIndexEntry.swift        SwiftData row backing the sidebar chart list
 │   │   ├── ColorTheme.swift             The 30 color/text themes
 │   │   ├── FontZoom.swift               Cmd +/- text size system
+│   │   ├── ChartSizeZoom.swift          Independent +/- chart-diagram size control
 │   │   ├── AppearanceMode.swift         Forced light/dark appearance
 │   │   └── Gender.swift
 │   ├── Views/                       All SwiftUI views
-│   │   ├── SavedChartsListView.swift        Sidebar: chart list, New/Open, theme + font pickers
+│   │   ├── SavedChartsListView.swift        Sidebar: search + chart list (New/Open/Theme/Font Size live in the window toolbar)
 │   │   ├── ChartInputFormView.swift         New/Edit chart form
-│   │   ├── ChartDetailView.swift            Tab host: D1 Chart / Divisional Charts / Vimshottari Dasha / Chara Dasha
+│   │   ├── ChartDetailView.swift            Tab host: Charts / Vimshottari Dasha / Chara Dasha
 │   │   ├── NorthIndianChartView.swift       Chart diagram, North Indian style
 │   │   ├── SouthIndianChartView.swift       Chart diagram, South Indian style
 │   │   ├── ChartLayoutData.swift            Shared chart-diagram data prep (placements, hover aspects)
 │   │   ├── ChartTableView.swift             D1 planetary positions table
-│   │   ├── DivisionalChartsView.swift       D2-D60 varga picker + diagram + table
+│   │   ├── DivisionalChartsView.swift       D1 + D2-D60 varga picker + diagram + panels + table (one shared page)
 │   │   ├── AnalysisPanelView.swift          Conjunctions/Graha Drishti/Rashi Drishti/House Lordships panel
 │   │   ├── D1ReferencePanelView.swift       Doshas/Jaimini/Arudha Padas/Chara Karakas panel (D1-only)
 │   │   ├── VimshottariDashaView.swift       Vimshottari Dasha table, current-period highlight
 │   │   ├── CharaDashaView.swift             Chara Dasha table, current-period highlight
 │   │   ├── TransitExplorerView.swift        Read-only live transit scrubber
+│   │   ├── ChartPDFExporter.swift           Export PDF rendering (cover page + one page per selected chart)
+│   │   ├── PDFExportOptionsView.swift       Export PDF options sheet (chart style, chart selection)
 │   │   ├── DashaDateFormatter.swift         Date/duration formatting, chart legend text builder
 │   │   └── ...                              (display-name/render-style helpers)
 │   ├── Persistence/
-│   │   └── ChartStore.swift             Save/load chart JSON; recomputes on every load
+│   │   ├── ChartStore.swift             Save/load chart JSON; recomputes on every load
+│   │   └── ImportChartNotification.swift    App-menu-command notifications (Open Chart..., About)
 │   ├── Geocoding/
 │   │   ├── PlaceLookup.swift             Offline place-of-birth search (bundled SQLite)
 │   │   └── PlaceSearchResult.swift
@@ -121,6 +194,15 @@ only touching calculation logic):
 
 ```bash
 cd DestinyEngine && swift test
+```
+
+If that fails with something like `package 'destinyengine' is using Swift
+tools version 6.3.0 but the installed version is 6.2.1`, your default
+`swift` (from a separate Swift toolchain install) is older than what
+Xcode ships. Run it through Xcode's own toolchain instead:
+
+```bash
+cd DestinyEngine && DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test
 ```
 
 ## Data & Persistence
